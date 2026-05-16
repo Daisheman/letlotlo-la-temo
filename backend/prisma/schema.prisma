@@ -1,0 +1,519 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserTier {
+  FREE
+  PREMIUM
+}
+
+enum Language {
+  EN
+  TN
+}
+
+enum WaterSource {
+  BOREHOLE
+  RIVER
+  RAIN
+  MUNICIPAL
+  MIXED
+}
+
+enum CropStatus {
+  PLANNED
+  GROWING
+  HARVESTED
+  FAILED
+}
+
+enum RecommendationType {
+  CROP
+  IRRIGATION
+  FERTILIZER
+  PEST
+  LIVESTOCK
+  GENERAL
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+}
+
+enum MessageType {
+  FARMING
+  LIVESTOCK
+  GENERAL
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  GRACE_PERIOD
+}
+
+enum Platform {
+  IOS
+  ANDROID
+  WEB
+}
+
+enum OtpPurpose {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+  MFA_LOGIN
+}
+
+enum MfaMethod {
+  EMAIL
+  TOTP
+}
+
+enum AuthEventType {
+  REGISTER
+  EMAIL_VERIFICATION_SENT
+  EMAIL_VERIFIED
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  LOGOUT
+  MFA_REQUIRED
+  MFA_VERIFIED
+  MFA_ENABLED
+  MFA_DISABLED
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_RESET_VERIFIED
+  PASSWORD_CHANGED
+  OTP_FAILED
+}
+
+enum PostCategory {
+  CROPS
+  LIVESTOCK
+  SOIL
+  WEATHER
+  EQUIPMENT
+  MARKET_PRICES
+  SUCCESS_STORIES
+  QUESTIONS
+  GENERAL
+}
+
+enum PostStatus {
+  ACTIVE
+  HIDDEN
+  REMOVED
+}
+
+enum ReactionType {
+  HELPFUL
+  LEARNED
+  THANKS
+}
+
+model User {
+  id                 String        @id @default(uuid()) @db.Uuid
+  email              String        @unique
+  passwordHash       String?       @map("password_hash")
+  name               String
+  phone              String?
+  locationLat        Float?        @map("location_lat")
+  locationLng        Float?        @map("location_lng")
+  locationName       String        @default("") @map("location_name")
+  tier               UserTier      @default(FREE)
+  revenuecatUserId   String?       @map("revenuecat_user_id")
+  preferredLanguage  Language      @default(EN) @map("preferred_language")
+  pushToken          String?       @map("push_token")
+  emailVerified      Boolean       @default(false) @map("email_verified")
+  emailVerifiedAt    DateTime?     @map("email_verified_at")
+  mfaEnabled         Boolean       @default(false) @map("mfa_enabled")
+  mfaMethod          MfaMethod?    @map("mfa_method")
+  totpSecret         String?       @map("totp_secret")
+  mfaEnabledAt       DateTime?     @map("mfa_enabled_at")
+  backupCodes        String[]      @default([]) @map("backup_codes")
+  refreshTokenVersion Int          @default(0) @map("refresh_token_version")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+  farms              Farm[]
+  chatMessages       ChatMessage[]
+  subscriptions      Subscription[]
+  aiUsageLogs        AiUsageLog[]
+  emailOtps          EmailOtp[]
+  trustedDevices     TrustedDevice[]
+  passwordHistory    PasswordHistory[]
+  authEvents         AuthEvent[]
+  communityPosts     CommunityPost[]
+  communityComments  CommunityComment[]
+  communityReactions CommunityReaction[]
+  communityBookmarks CommunityBookmark[]
+  reputation         UserReputation?
+  marketPrices       MarketPrice[] @relation("MarketPriceReporter")
+
+  @@map("users")
+}
+
+model Farm {
+  id                 String             @id @default(uuid()) @db.Uuid
+  userId             String             @map("user_id") @db.Uuid
+  name               String
+  sizeHectares       Float              @map("size_hectares")
+  lat                Float
+  lng                Float
+  soilType           String?            @map("soil_type")
+  soilPh             Float?             @map("soil_ph")
+  soilOrganicCarbon  Float?             @map("soil_organic_carbon")
+  soilClayPct        Float?             @map("soil_clay_pct")
+  soilSandPct        Float?             @map("soil_sand_pct")
+  waterSource        WaterSource        @map("water_source")
+  boreholeDepthMeters Float?            @map("borehole_depth_meters")
+  farmHealthScore    Int?               @map("farm_health_score")
+  notes              String?
+  photoUrl           String?            @map("photo_url")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  crops              Crop[]
+  livestock          Livestock[]
+  recommendations    AiRecommendation[]
+  chatMessages       ChatMessage[]
+
+  @@index([userId])
+  @@map("farms")
+}
+
+model Crop {
+  id                  String      @id @default(uuid()) @db.Uuid
+  farmId              String      @map("farm_id") @db.Uuid
+  name                String
+  variety             String?
+  plantedDate         DateTime?   @map("planted_date") @db.Date
+  expectedHarvestDate DateTime?   @map("expected_harvest_date") @db.Date
+  areaHectares        Float       @map("area_hectares")
+  status              CropStatus
+  yieldKg             Float?      @map("yield_kg")
+  notes               String?
+  photoUrl            String?     @map("photo_url")
+  createdAt           DateTime    @default(now()) @map("created_at")
+  updatedAt           DateTime    @updatedAt @map("updated_at")
+  farm                Farm        @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@index([farmId])
+  @@map("crops")
+}
+
+model Livestock {
+  id           String        @id @default(uuid()) @db.Uuid
+  farmId       String        @map("farm_id") @db.Uuid
+  species      String
+  breed        String?
+  count        Int
+  notes        String?
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  farm         Farm          @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  healthEvents HealthEvent[]
+  chatMessages ChatMessage[]
+
+  @@index([farmId])
+  @@map("livestock")
+}
+
+model HealthEvent {
+  id                    String     @id @default(uuid()) @db.Uuid
+  livestockId           String     @map("livestock_id") @db.Uuid
+  reportedAt            DateTime   @default(now()) @map("reported_at")
+  symptoms              String
+  photoUrl              String?    @map("photo_url")
+  aiDiagnosis           String?    @map("ai_diagnosis")
+  aiTreatment           String?    @map("ai_treatment")
+  aiMedicines           String?    @map("ai_medicines")
+  aiModelUsed           String?    @map("ai_model_used")
+  mustCallVet           Boolean    @default(false) @map("must_call_vet")
+  mustReportAuthorities Boolean    @default(false) @map("must_report_authorities")
+  vetConfirmed          Boolean    @default(false) @map("vet_confirmed")
+  resolved              Boolean    @default(false)
+  createdAt             DateTime   @default(now()) @map("created_at")
+  livestock             Livestock  @relation(fields: [livestockId], references: [id], onDelete: Cascade)
+
+  @@index([livestockId])
+  @@map("health_events")
+}
+
+model AiRecommendation {
+  id              String             @id @default(uuid()) @db.Uuid
+  farmId          String             @map("farm_id") @db.Uuid
+  type            RecommendationType
+  recommendation  String
+  aiModelUsed     String             @map("ai_model_used")
+  contextSnapshot Json               @map("context_snapshot")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  farm            Farm               @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@index([farmId])
+  @@index([type])
+  @@map("ai_recommendations")
+}
+
+model ChatMessage {
+  id           String      @id @default(uuid()) @db.Uuid
+  userId       String      @map("user_id") @db.Uuid
+  farmId       String?     @map("farm_id") @db.Uuid
+  livestockId  String?     @map("livestock_id") @db.Uuid
+  sessionId    String      @map("session_id")
+  role         ChatRole
+  content      String
+  imageUrl     String?     @map("image_url")
+  aiModelUsed  String?     @map("ai_model_used")
+  messageType  MessageType @map("message_type")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farm         Farm?       @relation(fields: [farmId], references: [id], onDelete: SetNull)
+  livestock    Livestock?  @relation(fields: [livestockId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([farmId])
+  @@index([livestockId])
+  @@index([sessionId])
+  @@map("chat_messages")
+}
+
+model WeatherCache {
+  id        String   @id @default(uuid()) @db.Uuid
+  lat       Float
+  lng       Float
+  fetchedAt DateTime @default(now()) @map("fetched_at")
+  data      Json
+  expiresAt DateTime @map("expires_at")
+
+  @@index([lat, lng])
+  @@index([expiresAt])
+  @@map("weather_cache")
+}
+
+model SoilCache {
+  id        String   @id @default(uuid()) @db.Uuid
+  lat       Float
+  lng       Float
+  fetchedAt DateTime @default(now()) @map("fetched_at")
+  data      Json
+  expiresAt DateTime @map("expires_at")
+
+  @@index([lat, lng])
+  @@index([expiresAt])
+  @@map("soil_cache")
+}
+
+model Subscription {
+  id                           String             @id @default(uuid()) @db.Uuid
+  userId                       String             @map("user_id") @db.Uuid
+  revenuecatSubscriptionId     String             @map("revenuecat_subscription_id")
+  productId                    String             @map("product_id")
+  status                       SubscriptionStatus
+  platform                     Platform
+  currentPeriodEnd             DateTime           @map("current_period_end")
+  createdAt                    DateTime           @default(now()) @map("created_at")
+  updatedAt                    DateTime           @updatedAt @map("updated_at")
+  user                         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@unique([revenuecatSubscriptionId])
+  @@map("subscriptions")
+}
+
+model AiUsageLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  model       String
+  taskType    String   @map("task_type")
+  tokensUsed  Int      @map("tokens_used")
+  latencyMs   Int      @map("latency_ms")
+  success     Boolean
+  createdAt   DateTime @default(now()) @map("created_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([model])
+  @@index([createdAt])
+  @@map("ai_usage_log")
+}
+
+model EmailOtp {
+  id          String     @id @default(uuid()) @db.Uuid
+  userId      String     @map("user_id") @db.Uuid
+  email       String
+  code        String
+  purpose     OtpPurpose
+  attempts    Int        @default(0)
+  maxAttempts Int        @default(5) @map("max_attempts")
+  expiresAt   DateTime   @map("expires_at")
+  usedAt      DateTime?  @map("used_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  ipAddress   String?    @map("ip_address")
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([email, purpose, createdAt])
+  @@index([userId, purpose])
+  @@index([expiresAt])
+  @@map("email_otps")
+}
+
+model TrustedDevice {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  deviceFingerprint String   @map("device_fingerprint")
+  deviceName        String   @map("device_name")
+  lastUsedAt        DateTime @default(now()) @map("last_used_at")
+  expiresAt         DateTime @map("expires_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceFingerprint])
+  @@index([expiresAt])
+  @@map("trusted_devices")
+}
+
+model PasswordHistory {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("password_history")
+}
+
+model AuthEvent {
+  id        String        @id @default(uuid()) @db.Uuid
+  userId    String?       @map("user_id") @db.Uuid
+  email     String?
+  type      AuthEventType
+  ipAddress String?       @map("ip_address")
+  userAgent String?       @map("user_agent")
+  metadata  Json?
+  createdAt DateTime      @default(now()) @map("created_at")
+  user      User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([email, createdAt])
+  @@index([ipAddress, type, createdAt])
+  @@map("auth_events")
+}
+
+model CommunityPost {
+  id          String               @id @default(uuid()) @db.Uuid
+  authorId    String               @map("author_id") @db.Uuid
+  title       String
+  content     String
+  category    PostCategory
+  status      PostStatus           @default(ACTIVE)
+  photoUrls   String[]             @default([]) @map("photo_urls")
+  tags        String[]             @default([])
+  district    String?
+  isAnonymous Boolean              @default(false) @map("is_anonymous")
+  isPinned    Boolean              @default(false) @map("is_pinned")
+  isVerified  Boolean              @default(false) @map("is_verified")
+  viewCount   Int                  @default(0) @map("view_count")
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+  author      User                 @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments    CommunityComment[]
+  reactions   CommunityReaction[]
+  bookmarks   CommunityBookmark[]
+
+  @@index([authorId])
+  @@index([category, status, createdAt])
+  @@index([district])
+  @@index([isPinned, createdAt])
+  @@map("community_posts")
+}
+
+model CommunityComment {
+  id           String              @id @default(uuid()) @db.Uuid
+  postId       String              @map("post_id") @db.Uuid
+  authorId     String              @map("author_id") @db.Uuid
+  content      String
+  photoUrls    String[]            @default([]) @map("photo_urls")
+  isAnonymous  Boolean             @default(false) @map("is_anonymous")
+  isBestAnswer Boolean             @default(false) @map("is_best_answer")
+  parentId     String?             @map("parent_id") @db.Uuid
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+  post         CommunityPost       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author       User                @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent       CommunityComment?   @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies      CommunityComment[]  @relation("CommentReplies")
+  reactions    CommunityReaction[]
+
+  @@index([postId, createdAt])
+  @@index([authorId])
+  @@index([parentId])
+  @@map("community_comments")
+}
+
+model CommunityReaction {
+  id        String             @id @default(uuid()) @db.Uuid
+  userId    String             @map("user_id") @db.Uuid
+  postId    String?            @map("post_id") @db.Uuid
+  commentId String?            @map("comment_id") @db.Uuid
+  type      ReactionType
+  createdAt DateTime           @default(now()) @map("created_at")
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      CommunityPost?     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment   CommunityComment?  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId, type])
+  @@unique([userId, commentId, type])
+  @@index([postId])
+  @@index([commentId])
+  @@map("community_reactions")
+}
+
+model CommunityBookmark {
+  id        String        @id @default(uuid()) @db.Uuid
+  userId    String        @map("user_id") @db.Uuid
+  postId    String        @map("post_id") @db.Uuid
+  createdAt DateTime      @default(now()) @map("created_at")
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([postId])
+  @@map("community_bookmarks")
+}
+
+model UserReputation {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @unique @map("user_id") @db.Uuid
+  points          Int      @default(0)
+  postCount       Int      @default(0) @map("post_count")
+  helpfulCount    Int      @default(0) @map("helpful_count")
+  bestAnswerCount Int      @default(0) @map("best_answer_count")
+  badge           String?
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_reputation")
+}
+
+model MarketPrice {
+  id          String    @id @default(uuid()) @db.Uuid
+  crop        String
+  pricePerKg  Float     @map("price_per_kg")
+  district    String
+  marketName  String?   @map("market_name")
+  reportedBy  String    @map("reported_by") @db.Uuid
+  verifiedAt  DateTime? @map("verified_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  reporter    User      @relation("MarketPriceReporter", fields: [reportedBy], references: [id], onDelete: Cascade)
+
+  @@index([crop, district, createdAt])
+  @@index([reportedBy])
+  @@map("market_prices")
+}
