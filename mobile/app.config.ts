@@ -3,6 +3,7 @@ import type { ExpoConfig } from "expo/config";
 const config: ExpoConfig = {
   name: "Letlotlo la Temo",
   slug: "letlotlo-la-temo",
+  owner: "daisheee",
   scheme: "letlotlo",
   version: "1.0.0",
   orientation: "portrait",
@@ -17,11 +18,16 @@ const config: ExpoConfig = {
     adaptiveIcon: {
       backgroundColor: "#123524"
     },
-    permissions: ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "CAMERA", "POST_NOTIFICATIONS"]
+    permissions: [
+      "ACCESS_FINE_LOCATION",
+      "ACCESS_COARSE_LOCATION",
+      "CAMERA",
+      "POST_NOTIFICATIONS"
+    ]
   },
   extra: {
     eas: {
-      projectId: "letlotlo-la-temo-mvp"
+      projectId: "91111362-dd45-400d-aaf6-87d572907c5e"
     }
   },
   plugins: [
