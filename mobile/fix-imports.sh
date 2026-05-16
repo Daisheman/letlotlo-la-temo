@@ -1,3 +1,89 @@
+#!/bin/bash
+
+echo "Fixing AdBanner.tsx..."
+cat > components/AdBanner.tsx << 'EOF'
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
+
+export default function AdBanner() {
+  return (
+    <View style={styles.container}>
+      <Text style={styles.text}>Advertisement</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    width: "100%",
+    height: 50,
+    backgroundColor: "#f0f0f0",
+    alignItems: "center",
+    justifyContent: "center",
+    borderTopWidth: 1,
+    borderTopColor: "#ddd"
+  },
+  text: {
+    color: "#999",
+    fontSize: 12
+  }
+});
+EOF
+
+echo "Fixing lib/storage.ts..."
+cat > lib/storage.ts << 'EOF'
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+export const storage = {
+  set: async (key: string, value: string) => {
+    await AsyncStorage.setItem(key, value);
+  },
+  getString: async (key: string): Promise<string | null> => {
+    return await AsyncStorage.getItem(key);
+  },
+  delete: async (key: string) => {
+    await AsyncStorage.removeItem(key);
+  },
+  clearAll: async () => {
+    await AsyncStorage.clear();
+  }
+};
+
+export default storage;
+EOF
+
+echo "Fixing lib/revenuecat.ts..."
+cat > lib/revenuecat.ts << 'EOF'
+export interface PurchasesPackage {
+  identifier: string;
+  product: {
+    title: string;
+    description: string;
+    priceString: string;
+  };
+}
+
+export const Purchases = {
+  configure: (_config: { apiKey: string; appUserID?: string }) => {
+    console.log("RevenueCat disabled in test build");
+  },
+  getOfferings: async () => {
+    return { current: { availablePackages: [] } };
+  },
+  purchasePackage: async (_pkg: PurchasesPackage) => {
+    return null;
+  },
+  getCustomerInfo: async () => {
+    return { entitlements: { active: {} } };
+  },
+  logOut: async () => {}
+};
+
+export default Purchases;
+EOF
+
+echo "Fixing app/premium/index.tsx..."
+cat > app/premium/index.tsx << 'EOF'
 import React, { useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
 import { router } from "expo-router";
@@ -89,3 +175,6 @@ const styles = StyleSheet.create({
   backButton: { alignItems: "center", marginBottom: 32 },
   backButtonText: { color: "#666", fontSize: 14 }
 });
+EOF
+
+echo "All files fixed successfully!"

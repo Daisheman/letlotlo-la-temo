@@ -1,22 +1,26 @@
-import { Platform } from "react-native";
-import Purchases, { PurchasesPackage } from "react-native-purchases";
-
-let configured = false;
-
-export function configureRevenueCat(userId?: string) {
-  if (configured) return;
-  const apiKey =
-    Platform.OS === "ios" ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY : process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY;
-  if (!apiKey) return;
-  Purchases.configure({ apiKey, appUserID: userId });
-  configured = true;
+export interface PurchasesPackage {
+  identifier: string;
+  product: {
+    title: string;
+    description: string;
+    priceString: string;
+  };
 }
 
-export async function getPremiumPackages() {
-  const offerings = await Purchases.getOfferings();
-  return offerings.current?.availablePackages ?? [];
-}
+export const Purchases = {
+  configure: (_config: { apiKey: string; appUserID?: string }) => {
+    console.log("RevenueCat disabled in test build");
+  },
+  getOfferings: async () => {
+    return { current: { availablePackages: [] } };
+  },
+  purchasePackage: async (_pkg: PurchasesPackage) => {
+    return null;
+  },
+  getCustomerInfo: async () => {
+    return { entitlements: { active: {} } };
+  },
+  logOut: async () => {}
+};
 
-export async function purchasePremium(pkg: PurchasesPackage) {
-  return Purchases.purchasePackage(pkg);
-}
+export default Purchases;
