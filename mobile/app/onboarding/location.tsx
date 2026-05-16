@@ -1,64 +1,77 @@
-import { useState } from "react";
-import { Alert, Text, View } from "react-native";
+import React, { useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
 import * as Location from "expo-location";
-import MapView, { Marker } from "react-native-maps";
 import { router } from "expo-router";
-import { MapPin } from "lucide-react-native";
-import { Screen } from "@/components/ui/Screen";
-import { Button } from "@/components/ui/Button";
-import { useAuthStore } from "@/stores/auth-store";
-import { updateProfile } from "@/lib/queries";
 
 export default function LocationScreen() {
-  const user = useAuthStore((state) => state.user);
-  const setUser = useAuthStore((state) => state.setUser);
-  const [coords, setCoords] = useState({ latitude: user?.locationLat ?? -24.6282, longitude: user?.locationLng ?? 25.9231 });
   const [loading, setLoading] = useState(false);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  async function requestLocation() {
+  const getLocation = async () => {
     setLoading(true);
     try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== "granted") {
-        Alert.alert("Permission needed", "GPS permission helps Temo tailor weather, soil, and water advice.");
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission needed", "Please allow location access to get farming advice for your area.");
+        setLoading(false);
         return;
       }
-      const position = await Location.getCurrentPositionAsync({});
-      setCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude });
-    } finally {
-      setLoading(false);
+      const loc = await Location.getCurrentPositionAsync({});
+      setLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
+    } catch (e) {
+      Alert.alert("Error", "Could not get your location. Please try again.");
     }
-  }
-
-  async function confirm() {
-    if (user) {
-      const updated = await updateProfile({
-        locationLat: coords.latitude,
-        locationLng: coords.longitude,
-        locationName: "Confirmed farm district"
-      });
-      setUser(updated);
-    }
-    router.push("/onboarding/first-farm");
-  }
+    setLoading(false);
+  };
 
   return (
-    <Screen>
-      <Text className="text-3xl font-black text-field-900">Confirm location</Text>
-      <Text className="mt-2 text-field-700">Temo uses GPS to match advice to rainfall, frost risk, soil, and nearby water.</Text>
-      <View className="mt-5 h-80 overflow-hidden rounded-lg border border-field-100">
-        <MapView
-          style={{ flex: 1 }}
-          region={{ latitude: coords.latitude, longitude: coords.longitude, latitudeDelta: 0.2, longitudeDelta: 0.2 }}
-          onPress={(event) => setCoords(event.nativeEvent.coordinate)}
+    <View style={styles.container}>
+      <View style={styles.content}>
+        <Text style={styles.emoji}>📍</Text>
+        <Text style={styles.title}>Where is your farm?</Text>
+        <Text style={styles.subtitle}>
+          We use your location to give you accurate soil data, weather forecasts, and farming advice for your area.
+        </Text>
+        {location && (
+          <View style={styles.locationCard}>
+            <Text style={styles.locationText}>✓ Location detected</Text>
+            <Text style={styles.coordsText}>
+              {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
+            </Text>
+          </View>
+        )}
+        <TouchableOpacity
+          style={styles.button}
+          onPress={location ? () => router.push("/onboarding/first-farm") : getLocation}
+          disabled={loading}
         >
-          <Marker coordinate={coords} title="Farm location" />
-        </MapView>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>
+              {location ? "Continue →" : "Detect My Location"}
+            </Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.skipButton} onPress={() => router.push("/onboarding/first-farm")}>
+          <Text style={styles.skipText}>Enter location manually instead</Text>
+        </TouchableOpacity>
       </View>
-      <View className="mt-4 gap-3">
-        <Button title="Use my GPS" icon={MapPin} loading={loading} onPress={requestLocation} variant="secondary" />
-        <Button title="Confirm district" onPress={confirm} />
-      </View>
-    </Screen>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#1B5E35" },
+  content: { flex: 1, padding: 32, justifyContent: "center", alignItems: "center" },
+  emoji: { fontSize: 64, marginBottom: 24 },
+  title: { fontSize: 28, fontWeight: "bold", color: "#fff", textAlign: "center", marginBottom: 16 },
+  subtitle: { fontSize: 16, color: "rgba(255,255,255,0.8)", textAlign: "center", lineHeight: 24, marginBottom: 32 },
+  locationCard: { backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 12, padding: 16, marginBottom: 24, width: "100%", alignItems: "center" },
+  locationText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  coordsText: { color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 4 },
+  button: { backgroundColor: "#C8861A", borderRadius: 12, padding: 16, width: "100%", alignItems: "center", marginBottom: 16 },
+  buttonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  skipButton: { padding: 8 },
+  skipText: { color: "rgba(255,255,255,0.6)", fontSize: 14, textDecorationLine: "underline" }
+});

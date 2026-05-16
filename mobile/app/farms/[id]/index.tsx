@@ -1,108 +1,62 @@
-import { Alert, Text, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
-import MapView, { Marker } from "react-native-maps";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Brain, CloudSun, Droplets, Leaf, Sprout } from "lucide-react-native";
-import { Screen } from "@/components/ui/Screen";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { Metric } from "@/components/ui/Metric";
-import { Badge } from "@/components/ui/Badge";
-import { getFarm, getFarmHealthScore, getRecommendation, getSoil, getWater } from "@/lib/queries";
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import { useLocalSearchParams, router } from "expo-router";
 
 export default function FarmDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const queryClient = useQueryClient();
-  const farmQuery = useQuery({ queryKey: ["farm", id], queryFn: () => getFarm(id), enabled: Boolean(id) });
-  const farm = farmQuery.data;
-  const soilQuery = useQuery({ queryKey: ["soil", farm?.id], queryFn: () => getSoil(farm!.lat, farm!.lng), enabled: Boolean(farm) });
-  const waterQuery = useQuery({ queryKey: ["water", farm?.id], queryFn: () => getWater(farm!.lat, farm!.lng), enabled: Boolean(farm) });
-  const scoreQuery = useQuery({ queryKey: ["farm-health", id], queryFn: () => getFarmHealthScore(id), enabled: Boolean(id) });
-  const recommendationMutation = useMutation({
-    mutationFn: () => getRecommendation(id, "full crop, irrigation, soil, and water recommendation"),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["farm", id] });
-      queryClient.invalidateQueries({ queryKey: ["farms"] });
-    },
-    onError: (error: any) => Alert.alert("AI recommendation failed", error.response?.data?.error ?? "Try again.")
-  });
+  const { id } = useLocalSearchParams();
+  const [loading, setLoading] = useState(true);
 
-  if (!farm) {
+  useEffect(() => {
+    setTimeout(() => setLoading(false), 1000);
+  }, []);
+
+  if (loading) {
     return (
-      <Screen>
-        <Text className="text-field-700">Loading farm...</Text>
-      </Screen>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#1B5E35" />
+        <Text style={styles.loadingText}>Loading farm data...</Text>
+      </View>
     );
   }
 
-  const soil = soilQuery.data ?? {};
-  const waterSources = waterQuery.data ?? [];
-  const latestRecommendation = recommendationMutation.data ?? farm.recommendations?.[0];
-
   return (
-    <Screen>
-      <Text className="text-3xl font-black text-field-900">{farm.name}</Text>
-      <Text className="mt-1 text-field-700">{farm.sizeHectares} hectares - {farm.waterSource.toLowerCase()} water</Text>
-
-      <View className="mt-4 h-72 overflow-hidden rounded-lg border border-field-100">
-        <MapView style={{ flex: 1 }} region={{ latitude: farm.lat, longitude: farm.lng, latitudeDelta: 0.12, longitudeDelta: 0.12 }}>
-          <Marker coordinate={{ latitude: farm.lat, longitude: farm.lng }} title={farm.name} />
-          {waterSources.slice(0, 15).map((source: any) => (
-            <Marker
-              key={source.id}
-              coordinate={{ latitude: source.lat, longitude: source.lng }}
-              title={source.name}
-              description={source.type}
-              pinColor="#2563eb"
-            />
-          ))}
-        </MapView>
+    <ScrollView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backText}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Farm Detail</Text>
       </View>
-
-      <View className="mt-4 flex-row gap-2">
-        <Metric label="Health" value={`${scoreQuery.data ?? farm.farmHealthScore ?? "--"}/100`} />
-        <Metric label="pH" value={String(farm.soilPh ?? (soil as any).phh2o?.toFixed?.(1) ?? "--")} />
-        <Metric label="Water pins" value={String(waterSources.length)} />
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>📍 Location</Text>
+        <Text style={styles.cardText}>Map view coming in next update</Text>
       </View>
-
-      <Card className="mt-4">
-        <Text className="text-lg font-black text-field-900">Soil quality</Text>
-        <View className="mt-3 flex-row flex-wrap gap-2">
-          <Metric label="Organic C" value={`${farm.soilOrganicCarbon ?? (soil as any).soc?.toFixed?.(1) ?? "--"}%`} />
-          <Metric label="Clay" value={`${farm.soilClayPct ?? (soil as any).clay?.toFixed?.(0) ?? "--"}%`} />
-          <Metric label="Sand" value={`${farm.soilSandPct ?? (soil as any).sand?.toFixed?.(0) ?? "--"}%`} />
-        </View>
-      </Card>
-
-      <Card className="mt-4">
-        <Text className="text-lg font-black text-field-900">Water sources nearby</Text>
-        <View className="mt-3 gap-2">
-          {waterSources.slice(0, 4).map((source: any) => (
-            <View key={source.id} className="flex-row items-center gap-2">
-              <Droplets size={16} color="#2563eb" />
-              <Text className="flex-1 text-field-800">{source.name} - {source.type}</Text>
-            </View>
-          ))}
-          {!waterSources.length ? <Text className="text-field-700">No mapped wells, boreholes, rivers, or springs found within 10km.</Text> : null}
-        </View>
-      </Card>
-
-      <View className="mt-4 gap-3">
-        <Button title="Get AI Recommendation" icon={Brain} loading={recommendationMutation.isPending} onPress={() => recommendationMutation.mutate()} />
-        <Button title="Crop Planner" icon={Sprout} variant="secondary" onPress={() => router.push(`/farms/${farm.id}/crops`)} />
-        <Button title="Weather" icon={CloudSun} variant="ghost" onPress={() => router.push(`/farms/${farm.id}/weather`)} />
-        <Button title="Soil Data" icon={Leaf} variant="ghost" onPress={() => router.push(`/farms/${farm.id}/soil`)} />
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>🌱 Soil Health</Text>
+        <Text style={styles.cardText}>Fetch soil data to see details</Text>
       </View>
-
-      {latestRecommendation ? (
-        <Card className="mt-4">
-          <View className="mb-2 flex-row items-center justify-between">
-            <Text className="text-lg font-black text-field-900">Recommendation</Text>
-            <Badge label={latestRecommendation.aiModelUsed} tone="blue" />
-          </View>
-          <Text className="leading-6 text-field-800">{latestRecommendation.recommendation}</Text>
-        </Card>
-      ) : null}
-    </Screen>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>💧 Water Sources</Text>
+        <Text style={styles.cardText}>Nearby water sources will appear here</Text>
+      </View>
+      <TouchableOpacity style={styles.aiButton}>
+        <Text style={styles.aiButtonText}>Get AI Recommendation</Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#f5f5f5" },
+  loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#f5f5f5" },
+  loadingText: { marginTop: 12, color: "#666", fontSize: 14 },
+  header: { backgroundColor: "#1B5E35", padding: 20, paddingTop: 50 },
+  backButton: { marginBottom: 8 },
+  backText: { color: "rgba(255,255,255,0.8)", fontSize: 14 },
+  title: { fontSize: 24, fontWeight: "bold", color: "#fff" },
+  card: { backgroundColor: "#fff", margin: 16, marginBottom: 0, borderRadius: 12, padding: 16 },
+  cardTitle: { fontSize: 16, fontWeight: "600", color: "#1B5E35", marginBottom: 8 },
+  cardText: { fontSize: 14, color: "#666" },
+  aiButton: { backgroundColor: "#1B5E35", margin: 16, borderRadius: 12, padding: 16, alignItems: "center" },
+  aiButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" }
+});
